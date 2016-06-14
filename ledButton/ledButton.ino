@@ -19,6 +19,11 @@ void setup() {
 
   // initialize button
   pinMode(pinButton, INPUT_PULLUP);
+
+  traceSetLevel(TRACE_DEBUG_LEVEL_INFO);
+  Serial.begin(115200);
+  Serial.write("hello world!\r\n");
+
 }
 
 /*
@@ -48,6 +53,17 @@ void flashLED(void)
   delay(500);
 }
 
+void SerialReadInput()
+{
+  int len = Serial.available();
+  char value = 0;
+  
+  while(len-- > 0) {
+      value = (char)Serial.read();
+      Serial.print(value);
+  }
+}
+
 /*
  * main loop function
  */
@@ -55,6 +71,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   int buttonValue;
 
+  SerialReadInput();
   buttonValue = digitalRead(pinButton);
   if (buttonValue == LOW) {
     flashLED();
