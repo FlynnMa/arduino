@@ -1,3 +1,4 @@
+#include "trace.h"
 
 /*
  * Defintions
@@ -20,7 +21,6 @@ void setup() {
   // initialize button
   pinMode(pinButton, INPUT_PULLUP);
 
-  traceSetLevel(TRACE_DEBUG_LEVEL_INFO);
   Serial.begin(115200);
   Serial.write("hello world!\r\n");
 
