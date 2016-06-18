@@ -1,5 +1,5 @@
 #include "trace.h"
-//#include "shell.h"
+#include "shell.h"
 
 /*
  * Defintions
@@ -9,8 +9,8 @@ const int pinLEDRed = 8;
 const int pinButton = 9;
 
 const char compile_date[] = __DATE__ " " __TIME__;
-Trace trace(TRACE_DEBUG_LEVEL_INFO);
-//Shell sh;
+Trace trace;
+Shell sh;
 
 /*
  *  Initialize generic functions
@@ -31,6 +31,7 @@ void setup() {
   if (Serial) {
     Serial.write("hello world!\r\n");
   }
+  trace.trace("author : shmayunfei@qq.com");
 
 }
 

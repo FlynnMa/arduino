@@ -11,17 +11,15 @@
 class Trace
 {
   public:
-    Trace(int level);
     Trace();
-    void traceInfo(String str);
-    void traceWarn(String str);
-    void traceError(String str);
-    void traceFatal(String str);
-    void trace(String str);
+    static void traceInfo(String str);
+    static void traceWarn(String str);
+    static void traceError(String str);
+    static void traceFatal(String str);
+    static void trace(String str);
   private:
-    int traceDebugLevel;
-
-};
+    static const int traceDebugLevel = TRACE_DEBUG_LEVEL_INFO;
+ };
 
 
 #endif
