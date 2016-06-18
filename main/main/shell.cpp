@@ -53,7 +53,7 @@ void Shell::parseString(String str)
 
   if (i >= num)
   {
-    traceInfo( "unrecognized command :\r\n");
+    //trace( "unrecognized command :\r\n");
     return; 
   }
   
@@ -79,36 +79,40 @@ void Shell::doHelp(String param)
 {
    int i;
 
-   traceInfo("usage:\r\n");
-   traceInfo("=============\r\n");
+   trace("\r\nusage:\r\n");
+   trace("=============\r\n");
 
    for(i = 0; i < sizeof(Shell::defaultCmds) / sizeof(CmdType); i++)
    {
-      traceInfo("\t\t" + Shell::defaultCmds[i].help + "\r\n");
+      trace(Shell::defaultCmds[i].cmd);
+      trace("\t\t" + Shell::defaultCmds[i].help + "\r\n");
    }
 }
 
 void Shell::showVersion(String param)
 {
-  traceInfo("ver 0.1\r\n"); 
-  traceInfo("build at: 2016.Jun.18, 13:46\r\n"); 
-  traceInfo("author : shmayunfei@qq.com\r\n");
+  String dateTime = __DATE__ " " __TIME__;
+  trace("ver 0.1\r\n"); 
+  trace("build at:" + dateTime + "\r\n"); 
+  trace("author : shmayunfei@qq.com\r\n");
 }
 
 void Shell::showTime(String param)
 {
-   traceInfo( "22:05\r\n" );
+   trace( "22:05\r\n" );
 }
 
 void Shell::ledControl(String param)
 {
   if(param == "on")
   {
-     traceInfo("turn led on...\r\n"); 
+     trace("turn led on...\r\n"); 
+     digitalWrite(8, HIGH);
   }
   else if (param == "off")
   {
-     traceInfo("turn led off...\r\n");
+     trace("turn led off...\r\n");
+     digitalWrite(8, LOW);
   }
 }
 

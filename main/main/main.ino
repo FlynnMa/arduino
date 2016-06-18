@@ -8,8 +8,11 @@ const int pinLEDYellow = 13;
 const int pinLEDRed = 8;
 const int pinButton = 9;
 
+const CmdType custCommands = {
+  
+};
+
 const char compile_date[] = __DATE__ " " __TIME__;
-Trace trace;
 Shell sh;
 
 /*
@@ -31,7 +34,9 @@ void setup() {
   if (Serial) {
     Serial.write("hello world!\r\n");
   }
-  trace.trace("author : shmayunfei@qq.com");
+  Trace::trace("author : shmayunfei@qq.com\r\n");
+  String str = compile_date;
+  Trace::trace(str);
 
 }
 
@@ -72,6 +77,14 @@ void flashLED(void)
   delay(500);
 }
 
+void serialReadLine()
+{
+  String inputStr;
+  
+  inputStr = Serial.readStringUntil('\n');
+  sh.putString(inputStr);
+}
+
 void SerialReadInput()
 {
   int len = Serial.available();
@@ -79,7 +92,8 @@ void SerialReadInput()
   
   while(len-- > 0) {
       value = (char)Serial.read();
-      Serial.print(value);
+//      Serial.print(value);
+      sh.putChar(value);
   }
 
   
@@ -91,6 +105,8 @@ void SerialReadInput()
 void loop() {
   // put your main code here, to run repeatedly:
   int buttonValue;
+
+//  serialReadLine();
 
   buttonValue = digitalRead(pinButton);
   if (buttonValue == LOW) {
