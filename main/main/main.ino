@@ -22,8 +22,21 @@ void setup() {
   pinMode(pinButton, INPUT_PULLUP);
 
   Serial.begin(115200);
-  Serial.write("hello world!\r\n");
 
+  if (Serial) {
+    Serial.write("hello world!\r\n");
+  }
+
+}
+
+/*
+  SerialEvent occurs whenever a new data comes in the
+ hardware serial RX.  This routine is run between each
+ time loop() runs, so using delay inside loop can delay
+ response.  Multiple bytes of data may be available.
+ */
+void serialEvent() {
+    SerialReadInput();
 }
 
 /*
@@ -71,7 +84,6 @@ void loop() {
   // put your main code here, to run repeatedly:
   int buttonValue;
 
-  SerialReadInput();
   buttonValue = digitalRead(pinButton);
   if (buttonValue == LOW) {
     flashLED();
