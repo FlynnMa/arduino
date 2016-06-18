@@ -12,6 +12,7 @@ class Trace
 {
   public:
     Trace(int level);
+    Trace();
     void traceInfo(String str);
     void traceWarn(String str);
     void traceError(String str);
@@ -24,3 +25,4 @@ class Trace
 
 
 #endif
+

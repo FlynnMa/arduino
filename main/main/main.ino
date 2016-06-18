@@ -1,4 +1,5 @@
 #include "trace.h"
+//#include "shell.h"
 
 /*
  * Defintions
@@ -6,6 +7,10 @@
 const int pinLEDYellow = 13;
 const int pinLEDRed = 8;
 const int pinButton = 9;
+
+const char compile_date[] = __DATE__ " " __TIME__;
+Trace trace(TRACE_DEBUG_LEVEL_INFO);
+//Shell sh;
 
 /*
  *  Initialize generic functions
@@ -75,6 +80,8 @@ void SerialReadInput()
       value = (char)Serial.read();
       Serial.print(value);
   }
+
+  
 }
 
 /*

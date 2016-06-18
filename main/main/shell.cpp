@@ -15,7 +15,6 @@ Shell::Shell(CmdType custCmds)
 
 Shell::Shell(void)
 {
-  
 }
 
 void Shell::putChar(char ch)
@@ -28,25 +27,25 @@ void Shell::putChar(char ch)
   }
 
   parseString(input);
-  input.clear();
+  input = "";
 }
 
-void Shell::putString(string str)
+void Shell::putString(String str)
 {
   parseString(str);
 }
 
-void Shell::parseString(string str)
+void Shell::parseString(String str)
 { 
   int i;
   int num;
-  string strip;
+  String strip;
   const CmdType  *pCurrentCmd;
 
   num = sizeof(defaultCmds) / sizeof(CmdType);
   for(i = 0; i < num; i++)
   {
-    if (str.compare(0, defaultCmds[i].cmd.length(), defaultCmds[i].cmd) == 0) 
+    if (str.startsWith(defaultCmds[i].cmd) == true) 
     {
        break;
     }
@@ -54,8 +53,7 @@ void Shell::parseString(string str)
 
   if (i >= num)
   {
-    cout << "unrecognized command :" << str << endl;
-    str.clear();
+    traceInfo( "unrecognized command :\r\n");
     return; 
   }
   
@@ -64,54 +62,53 @@ void Shell::parseString(string str)
 
   // we are going to get the command parameter via strip
   strip = str;
-  int len = str.length();
+  int inputLen = str.length();
+  int cmdLen = pCurrentCmd->cmd.length();
   // when there are additinal characters
   // we are going to do strip
-  if (len > pCurrentCmd->cmd.length())
+  if (inputLen > cmdLen)
   {
-    strip = str.at(len);
-    string drop = " ";
-    strip.erase(0,
-      strip.find_first_not_of(drop));
+    strip.remove(0,cmdLen);
+    String drop = " ";
+    strip.trim();
   }
   defaultCmds[i].func(strip);
 }
 
-void Shell::doHelp(string param)
+void Shell::doHelp(String param)
 {
    int i;
 
-   cout << "usage:" << endl; 
-   cout << "==========" << endl; 
+   traceInfo("usage:\r\n");
+   traceInfo("=============\r\n");
 
    for(i = 0; i < sizeof(Shell::defaultCmds) / sizeof(CmdType); i++)
    {
-      cout << Shell::defaultCmds[i].cmd; 
-      cout << "\t\t" << Shell::defaultCmds[i].help;
-      cout << endl;
+      traceInfo("\t\t" + Shell::defaultCmds[i].help + "\r\n");
    }
 }
 
-void Shell::showVersion(string param)
+void Shell::showVersion(String param)
 {
-  cout <<"ver 0.1" << endl; 
-  cout <<"build at:" << __DATE__ << "\t" << __TIME__ << endl; 
-  cout << "shmayunfei@qq.com" << endl;
+  traceInfo("ver 0.1\r\n"); 
+  traceInfo("build at: 2016.Jun.18, 13:46\r\n"); 
+  traceInfo("author : shmayunfei@qq.com\r\n");
 }
 
-void Shell::showTime(string param)
+void Shell::showTime(String param)
 {
-  cout << "22:05" << endl;
+   traceInfo( "22:05\r\n" );
 }
 
-void Shell::ledControl(string param)
+void Shell::ledControl(String param)
 {
   if(param == "on")
   {
-     cout << "turn led on..." << endl; 
+     traceInfo("turn led on...\r\n"); 
   }
   else if (param == "off")
   {
-     cout << "turn led off..." << endl;
+     traceInfo("turn led off...\r\n");
   }
 }
+
