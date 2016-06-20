@@ -8,9 +8,9 @@ const CmdType Shell::defaultCmds[4] = {
 };
 
 
-Shell::Shell(CmdType custCmds)
+Shell::Shell(const CmdType *custCmds)
 {
-  pCustCmds = &custCmds;
+  pCustCmds = custCmds;
 }
 
 Shell::Shell(void)
@@ -37,28 +37,46 @@ void Shell::putString(String str)
 
 void Shell::parseString(String str)
 { 
-  int i;
+  int i = 0,j = 0;
   int num;
-  String strip;
+  String strip, cmd;
   const CmdType  *pCurrentCmd;
+  bool custCmdsFound = false;
 
   num = sizeof(defaultCmds) / sizeof(CmdType);
   for(i = 0; i < num; i++)
   {
     if (str.startsWith(defaultCmds[i].cmd) == true) 
     {
+        // now we have hit a cmd
+       pCurrentCmd = &defaultCmds[i];
        break;
     }
   }
 
-  if (i >= num)
+  j = 0;
+  while(1)
+  {
+    cmd = pCustCmds[j].cmd;
+    if (cmd.startsWith("endOfCmd"))
+    {
+        custCmdsFound = false;
+        break;  
+    }
+    if (str.startsWith(cmd) == true) 
+    {
+       custCmdsFound = true;
+       pCurrentCmd = &pCustCmds[j];
+       break;
+    }
+    j++;
+  }
+
+  if ((i >= num) && (custCmdsFound == false))
   {
     //trace( "unrecognized command :\r\n");
     return; 
-  }
-  
-  // now we have hit a cmd
-  pCurrentCmd = &defaultCmds[i];
+  }  
 
   // we are going to get the command parameter via strip
   strip = str;
@@ -72,12 +90,12 @@ void Shell::parseString(String str)
     String drop = " ";
     strip.trim();
   }
-  defaultCmds[i].func(strip);
+  pCurrentCmd->func(strip);
 }
 
 void Shell::doHelp(String param)
 {
-   int i;
+   int i,j;
 
    trace("\r\nusage:\r\n");
    trace("=============\r\n");
@@ -87,6 +105,17 @@ void Shell::doHelp(String param)
       trace(Shell::defaultCmds[i].cmd);
       trace("\t\t" + Shell::defaultCmds[i].help + "\r\n");
    }
+
+/*
+   while(1)
+   {
+      if (Shell::pCustCmds[j].cmd.startsWith("endOfCmd"))
+      {
+          break;  
+      }
+      trace(Shell::pCustCmds[j].cmd);
+      trace("\t\t" + Shell::pCustCmds[j].help + "\r\n");
+    }*/
 }
 
 void Shell::showVersion(String param)
@@ -115,4 +144,6 @@ void Shell::ledControl(String param)
      digitalWrite(8, LOW);
   }
 }
+
+
 

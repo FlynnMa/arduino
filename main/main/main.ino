@@ -1,5 +1,17 @@
 #include "trace.h"
 #include "shell.h"
+#include <SoftwareSerial.h>
+
+void gsmInit(String param);
+void gsmSMS(String param);
+void softserialCheck(void);
+void emptyFunc(String param){
+  
+  }
+
+void gsmInit(String param);
+void gsmSMS(String param);
+
 
 /*
  * Defintions
@@ -7,13 +19,20 @@
 const int pinLEDYellow = 13;
 const int pinLEDRed = 8;
 const int pinButton = 9;
+bool replyGSM = false;
+String inputGSM = "";
+volatile bool waitSendSms = false;
 
-const CmdType custCommands = {
-  
+SoftwareSerial gsmPort(2,3);
+
+const CmdType custCommands[] = {
+  {"gsm", "start gsm module", gsmInit},
+  {"sms", "send SMS", gsmSMS},
+  {"endOfCmd", "end of commands", emptyFunc},
 };
 
 const char compile_date[] = __DATE__ " " __TIME__;
-Shell sh;
+Shell sh(custCommands);
 
 /*
  *  Initialize generic functions
@@ -32,7 +51,7 @@ void setup() {
   Serial.begin(115200);
 
   if (Serial) {
-    Serial.write("hello world!\r\n");
+    Serial.write("keyfoot technolodgy!\r\n");
   }
   Trace::trace("author : shmayunfei@qq.com\r\n");
   String str = compile_date;
@@ -106,6 +125,7 @@ void loop() {
   // put your main code here, to run repeatedly:
   int buttonValue;
 
+  softserialCheck();
 //  serialReadLine();
 
   buttonValue = digitalRead(pinButton);
@@ -113,3 +133,48 @@ void loop() {
     flashLED();
   }
 }
+
+
+void softserialCheck(void)
+{
+  int len;
+  char value;
+  int endOfText = 0x1a;
+
+  len = gsmPort.available();
+  while (len-- > 0)
+  {
+    value = (char) gsmPort.read();
+    Serial.print(value);
+    inputGSM += value;
+    if (value == '>') {
+        gsmPort.write("012345678911234567892123456789312345678941234567895123456789612345678971234567898123456789\n");
+        gsmPort.write(endOfText);
+    }
+  }
+  if (inputGSM.indexOf("OK") > 0){
+    replyGSM = true;
+  }
+}
+
+void gsmInit(String param)
+{
+   int i;
+   gsmPort.begin(9600);
+   gsmPort.write("AT;\n");
+   gsmPort.write("ATE1;\n");
+   gsmPort.write("AT+CSCLK=0;\n");
+   delay(100);
+   gsmPort.write("AT+CMGF=1;\n");
+   gsmPort.write("AT+CSCS=\"GSM\"\n");
+   delay(50);
+   gsmPort.write("AT+CSMP=17,167,2,241\n");
+}
+
+void gsmSMS(String param)
+{  
+   gsmPort.write("AT+CMGS=\"+phonenumber\"\n");
+   waitSendSms = true;
+   
+}
+

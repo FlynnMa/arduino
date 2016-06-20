@@ -17,7 +17,7 @@ struct CmdType {
 class Shell : public Trace{
 
   public:
-  Shell(CmdType custCmds);
+  Shell(const CmdType *custCmds);
   Shell(void);
   void putChar(char ch);
   void putString(String str);
@@ -29,11 +29,14 @@ class Shell : public Trace{
     static void showVersion(String param);
     static void showTime(String param);
     static void ledControl(String param);
+    static void gsmInit(String param);
+    static void gsmSMS(String param);
 
     String input;
 
+
     static const CmdType defaultCmds[4];
-    CmdType *pCustCmds;
+    const CmdType *pCustCmds;
 
 };
 
