@@ -35,8 +35,8 @@ class Shell : public Trace{
     String input;
 
 
-    static const CmdType defaultCmds[4];
-    const CmdType *pCustCmds;
+    static const CmdType defaultCmds[];
+    static const CmdType *pCustCmds;
 
 };
 

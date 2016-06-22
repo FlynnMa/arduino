@@ -1,10 +1,10 @@
 #include "Arduino.h"
 #include "trace.h"
 
+const int Trace::traceDebugLevel = TRACE_DEBUG_LEVEL_INFO;
 
 Trace::Trace()
 {
-//  traceDebugLevel = TRACE_DEBUG_LEVEL_INFO;
 }
 
 void Trace::traceInfo(String str)

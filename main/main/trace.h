@@ -18,7 +18,7 @@ class Trace
     static void traceFatal(String str);
     static void trace(String str);
   private:
-    static const int traceDebugLevel = TRACE_DEBUG_LEVEL_INFO;
+    static const int traceDebugLevel;
  };
 
 

@@ -1,12 +1,12 @@
 #include "shell.h"
 
-const CmdType Shell::defaultCmds[4] = {
+const CmdType Shell::defaultCmds[] = {
   {"help", "display help message", doHelp},
   {"version", "display version",  showVersion},
   {"time", "show current time", showTime},
-  {"led", "turn led on or off", ledControl}
 };
 
+const CmdType *Shell::pCustCmds = NULL;
 
 Shell::Shell(const CmdType *custCmds)
 {
@@ -106,7 +106,8 @@ void Shell::doHelp(String param)
       trace("\t\t" + Shell::defaultCmds[i].help + "\r\n");
    }
 
-/*
+   trace("\r\n");
+
    while(1)
    {
       if (Shell::pCustCmds[j].cmd.startsWith("endOfCmd"))
@@ -115,7 +116,8 @@ void Shell::doHelp(String param)
       }
       trace(Shell::pCustCmds[j].cmd);
       trace("\t\t" + Shell::pCustCmds[j].help + "\r\n");
-    }*/
+      j++;
+    }
 }
 
 void Shell::showVersion(String param)
@@ -129,20 +131,6 @@ void Shell::showVersion(String param)
 void Shell::showTime(String param)
 {
    trace( "22:05\r\n" );
-}
-
-void Shell::ledControl(String param)
-{
-  if(param == "on")
-  {
-     trace("turn led on...\r\n"); 
-     digitalWrite(8, HIGH);
-  }
-  else if (param == "off")
-  {
-     trace("turn led off...\r\n");
-     digitalWrite(8, LOW);
-  }
 }
 
 
