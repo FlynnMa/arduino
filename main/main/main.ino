@@ -319,7 +319,7 @@ void stopToneAuto()
   if (currentTime >= toneEndTime)
   {
       digitalWrite(pinTone, LOW);
-      currentTime = 0;
+      toneEndTime = 0;
   }
 }
 
