@@ -3,10 +3,6 @@
 
 const int Trace::traceDebugLevel = TRACE_DEBUG_LEVEL_INFO;
 
-Trace::Trace()
-{
-}
-
 void Trace::traceInfo(String str)
 {
   if (traceDebugLevel == TRACE_DEBUG_LEVEL_INFO)

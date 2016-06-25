@@ -5,53 +5,75 @@
 #include "shell.h"
 
 #include "pitches.h"
+#ifdef __SUPPORT_GSM_MODULE__
 #include <SoftwareSerial.h>
 //TODO change softwareSerial to newSoftwareSerial
+#endif //#ifdef __SUPPORT_GSM_MODULE__
 
-void gsmInit(String param);
-void gsmSMS(String param);
-void softserialCheck(void);
 void emptyFunc(String param){
   
   }
 
+#ifdef __SUPPORT_GSM_MODULE__
 void gsmInit(String param);
 void gsmSMS(String param);
+void softserialCheck(void);
+#endif // #ifdef __SUPPORT_GSM_MODULE__
+
 void ledControl(String param);
 void setDate(String param);
 void setTime(String param);
 void showTime(String param);
 void playTone(String param);
 void playMelody(String param);
-
-
+void cmdRGB(String rgbValueStr);
+void cmdPlayRGB(String aniDuration);
+void onAnimateRGB(void);
 /*
  * Defintions
 */
-const int pinLEDYellow = 13;
-const int pinLEDRed = 8;
-const int pinButton = 9;
-const int pinTone = 4;
-const int pinMelody = 5;
+const byte pinLEDYellow = 13;
+const byte pinLEDRed = 8;
+const byte pinButton = 9;
+const byte pinTone = 4;
+const byte pinMelody = 7;
+
+const byte pinRGBR = 10;
+const byte pinRGBG = 5;
+const byte pinRGBB = 6;
+
+#ifdef __SUPPORT_GSM_MODULE__
 bool replyGSM = false;
 String inputGSM = "";
 volatile bool waitSendSms = false;
+#endif
 unsigned long toneEndTime = 0;
-int melodyIdx = -1; /* -1 means melody stop, >=0 melody is playing at certain index */
+byte melodyIdx = -1; /* -1 means melody stop, >=0 melody is playing at certain index */
 int melodyEndTime = 0;
 swRTC rtc;
 
+bool animateRGB = false;
+byte aniR, aniG, aniB; // animated r,g,b led value
+
+#ifdef __SUPPORT_GSM_MODULE__
 SoftwareSerial gsmPort(2,3);
+#endif // #ifdef __SUPPORT_GSM_MODULE__
 
 const CmdType custCommands[] = {
+
+#ifdef __SUPPORT_GSM_MODULE__
   {"gsm", "start gsm module", gsmInit},
   {"sms", "send SMS", gsmSMS},
+#endif // #ifdef __SUPPORT_GSM_MODULE__
+
   {"led", "control led on or off", ledControl},
   {"setDate", "set date, formate dd-mm-yyyy", setDate},
   {"setTime", "set time, formate hh:mm:ss", setTime},
   {"rtc", "show RTC time", showTime},
-  {"tone", "play a tone", playTone},
+  {"tone", "tone milli-seconds, play a tone in milliseconds", playTone},
   {"melody", "play melody", playMelody},
+  {"rgb", "rgb rrr,ggg,bbb to set a rgb LED color", cmdRGB},
+  {"playrgb", "playrgb milli-seconds, rgb as animation", cmdPlayRGB},
   {"endOfCmd", "end of commands", emptyFunc},
 };
 
@@ -153,13 +175,21 @@ void setup() {
 
   pinMode(pinMelody, OUTPUT);
 
+  pinMode(pinRGBR, OUTPUT);
+  pinMode(pinRGBG, OUTPUT);
+  pinMode(pinRGBB, OUTPUT);
+  setRGBvalue(255,255,255);
+
   Serial.begin(115200);
 
   if (Serial) {
     Serial.write("keyfoot technolodgy!\r\n");
   }
+  Trace::trace("https://github.com/marduino/arduino.git\n");
   Trace::trace("author : shmayunfei@qq.com\r\n");
-  String str = compile_date + "\r\n";
+//  Trace::trace("http://i.youku.com/keyfoot");
+  String str = compile_date;
+  str += "\n";
   Trace::trace(str);
 
   setupRTC();
@@ -218,7 +248,6 @@ void SerialReadInput()
   
   while(len-- > 0) {
       value = (char)Serial.read();
-//      Serial.print(value);
       sh.putChar(value);
   }
 
@@ -232,8 +261,10 @@ void loop() {
   // put your main code here, to run repeatedly:
   int buttonValue;
 
+  onAnimateRGB();
+#ifdef __SUPPORT_GSM_MODULE__
   softserialCheck();
-//  serialReadLine();
+#endif // #ifdef __SUPPORT_GSM_MODULE__
 
   buttonValue = digitalRead(pinButton);
   if (buttonValue == LOW) {
@@ -245,7 +276,7 @@ void loop() {
   stopMelodyAuto();
 }
 
-
+#ifdef __SUPPORT_GSM_MODULE__
 void softserialCheck(void)
 {
   int len;
@@ -271,6 +302,7 @@ void softserialCheck(void)
 void gsmInit(String param)
 {
    int i;
+ 
    gsmPort.begin(9600);
    gsmPort.write("AT;\n");
    gsmPort.write("ATE1;\n");
@@ -288,6 +320,7 @@ void gsmSMS(String param)
    waitSendSms = true;
    
 }
+#endif // #ifdef __SUPPORT_GSM_MODULE__
 
 void ledControl(String param)
 {
@@ -333,7 +366,12 @@ void playTone(String param)
   int duration = param.toInt();
 
   Trace::traceInfo("Play a tone...\r\n");
+
+  if (duration < 100)
+    duration = 100;
+
   toneEndTime = millis() + duration;
+
   digitalWrite(pinTone, HIGH);
   
 }
@@ -357,6 +395,7 @@ void stopMelodyAuto(void)
   if (melodyIdx == -1)
     return;
 
+  /* if is playing but not reached the switching time */
   if (millis() < melodyEndTime)
   {
     return;
@@ -371,9 +410,9 @@ void stopMelodyAuto(void)
 
   }
 
-  /* play next tone */
+  /* switch to next tone */
   melodyIdx++;
-  melodyEndTime = millis() + melodyDurations[0];
+  melodyEndTime = millis() + melodyDurations[melodyIdx];
   noTone(pinMelody);
   tone(pinMelody, melody[melodyIdx]);
 }
@@ -387,5 +426,81 @@ void playMelody(String param)
   tone(pinMelody, melody[melodyIdx]);
 }
 
+/******************************/
+void setRGBvalue(byte r, byte g, byte b)
+{
+  analogWrite(pinRGBR, r);
+  analogWrite(pinRGBG, g);
+  analogWrite(pinRGBB, b);
+  
+}
+
+void cmdRGB(String rgbValueStr)
+{
+  String tmp;
+  byte value, idxr, idxg, r, g, b;
+
+  // get red value
+  idxr = rgbValueStr.indexOf(',');
+  tmp = rgbValueStr.substring(0,idxr);
+  Trace::trace("r:" + tmp );
+  value = (byte)tmp.toInt();
+  if (value > 255) value = 255;
+  r = value;
+
+  //get green value
+  idxg = rgbValueStr.indexOf(',', idxr+1);
+  tmp = rgbValueStr.substring(idxr+1, idxg);
+  Trace::trace(" g :" + tmp );
+  value = (byte)tmp.toInt();
+  if (value > 255) value = 255;
+  g = value;
+
+  //get blue value
+  tmp = rgbValueStr.substring(idxg+1);
+  Trace::trace(" b :" + tmp + "\n");
+  value = (byte)tmp.toInt();
+  if (value > 255) value = 255;
+  b = value;
+  
+  setRGBvalue(r, g, b);
+}
+
+void cmdPlayRGB(String aniDuration)
+{
+  animateRGB = true;
+  aniR = 255;
+  aniG = 255, aniB = 255; // animated r,g,b led value
+  setRGBvalue(aniR, aniG, aniB);
+  Trace::traceInfo("play rgb animation\n");
+
+
+}
+
+void onAnimateRGB(void)
+{
+  /* if animation is stopped */
+  if (animateRGB == false)
+    return;
+    
+  if (aniR > 0)
+    aniR--;
+  else if(aniG > 0)
+    aniG--;
+  else if(aniB > 0)
+    aniB--;
+  else
+  {
+    animateRGB = false;
+    aniR = 255;
+    aniG = 255;
+    aniB = 255;
+  }
+
+  /* set diplay color */
+  setRGBvalue(aniR, aniG, aniB);
+  delay(3);
+  
+}
 
 

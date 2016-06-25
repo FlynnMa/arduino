@@ -11,7 +11,6 @@
 class Trace
 {
   public:
-    Trace();
     static void traceInfo(String str);
     static void traceWarn(String str);
     static void traceError(String str);
