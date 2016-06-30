@@ -38,9 +38,11 @@ const byte pinButton = 9;
 const byte pinTone = 4;
 const byte pinMelody = 7;
 
+#ifdef __SUPPORT_RGBLED__
 const byte pinRGBR = 10;
 const byte pinRGBG = 5;
 const byte pinRGBB = 6;
+#endif //__SUPPORT_RGBLED__
 
 #ifdef __SUPPORT_GSM_MODULE__
 bool replyGSM = false;
@@ -52,8 +54,10 @@ byte melodyIdx = -1; /* -1 means melody stop, >=0 melody is playing at certain i
 int melodyEndTime = 0;
 swRTC rtc;
 
+#ifdef __SUPPORT_RGBLED__
 bool animateRGB = false;
 byte aniR, aniG, aniB; // animated r,g,b led value
+#endif // __SUPPORT_RGBLED__
 
 #ifdef __SUPPORT_GSM_MODULE__
 SoftwareSerial gsmPort(2,3);
@@ -72,8 +76,10 @@ const CmdType custCommands[] = {
   {"rtc", "show RTC time", showTime},
   {"tone", "tone milli-seconds, play a tone in milliseconds", playTone},
   {"melody", "play melody", playMelody},
+#ifdef __SUPPORT_RGBLED__
   {"rgb", "rgb rrr,ggg,bbb to set a rgb LED color", cmdRGB},
   {"playrgb", "playrgb milli-seconds, rgb as animation", cmdPlayRGB},
+#endif //#ifdef __SUPPORT_RGBLED__
   {"endOfCmd", "end of commands", emptyFunc},
 };
 
@@ -175,10 +181,12 @@ void setup() {
 
   pinMode(pinMelody, OUTPUT);
 
+#ifdef __SUPPORT_RGBLED__
   pinMode(pinRGBR, OUTPUT);
   pinMode(pinRGBG, OUTPUT);
   pinMode(pinRGBB, OUTPUT);
   setRGBvalue(255,255,255);
+#endif //#ifdef __SUPPORT_RGBLED__
 
   Serial.begin(115200);
 
@@ -193,6 +201,8 @@ void setup() {
   Trace::trace(str);
 
   setupRTC();
+
+  IRRemoteSetup();
 
 }
 
@@ -261,7 +271,12 @@ void loop() {
   // put your main code here, to run repeatedly:
   int buttonValue;
 
+  IRRemoteMeasure();
+  
+#ifdef __SUPPORT_RGBLED__
   onAnimateRGB();
+#endif //#ifdef __SUPPORT_RGBLED__
+
 #ifdef __SUPPORT_GSM_MODULE__
   softserialCheck();
 #endif // #ifdef __SUPPORT_GSM_MODULE__
@@ -380,12 +395,12 @@ void playTone(String param)
 /*--------------------------------------------------------------*/
 /*----------------------Melody----------------------------------*/
 /*--------------------------------------------------------------*/
-int melody[] = {
+const int melody[] = {
   NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4
 };
 
 /* define melody durations in milliseconds */
-int melodyDurations[] = {
+const int melodyDurations[] = {
   200, 400, 400, 200, 200, 200, 200, 200
 };
 
@@ -427,6 +442,9 @@ void playMelody(String param)
 }
 
 /******************************/
+/* section RGB LED functions */
+/******************************/
+#ifdef __SUPPORT_RGBLED__
 void setRGBvalue(byte r, byte g, byte b)
 {
   analogWrite(pinRGBR, r);
@@ -501,6 +519,89 @@ void onAnimateRGB(void)
   setRGBvalue(aniR, aniG, aniB);
   delay(3);
   
+}
+#endif //#ifdef __SUPPORT_RGBLED__
+
+/**
+ *================================================================
+ * Section IR remote functions
+ * https://github.com/marduino/arduino/wiki
+ * 
+ * https://github.com/arduino/ArduinoCore-samd/blob/master/cores/arduino/main.cpp
+ */
+
+/* a start high pulse of 2400 micro-seconds indicates start transferring a set of bits */
+#define IR_REMOTE_START_TIMING    2100 
+
+/* a 'one' timing means to set a bit to 1, indicated by 1200micro-seconds high pulse */
+#define IR_REMOTE_ONE_TIMING      900
+
+/* a 'zero' timing means to set a bit to 0, indicated by 600micro-seconds high pulse */
+#define IR_REMOTE_ZERO_TIMING     400
+
+unsigned long startTiming;
+bool isDataValid;
+int irData;
+byte irDataIdx;
+
+const int pinIRRemote = 2;
+
+
+void IRRemoteSetup()
+{
+  startTiming = 0;
+  irDataIdx = 0;
+  irData = 0;
+  isDataValid = false;
+  pinMode(pinIRRemote, INPUT);
+}
+
+/*
+ * Continua
+ */
+void IRRemoteMeasure()
+{
+  int value;
+  unsigned long dur;
+
+  value = digitalRead(pinIRRemote);
+  if ((startTiming == 0) && (HIGH == value))
+  {
+    startTiming = micros();
+    return;
+  }
+
+  /* wait until pin value turn to low, always return when HIGH */
+  if (HIGH == value)
+  {
+    return;
+  }
+
+  dur = micros() - startTiming;
+  startTiming = 0;
+  
+  /* read data if is a valid data frame */
+  if (isDataValid == true) {
+    /* convert data according with timing */
+    if (dur >= IR_REMOTE_ONE_TIMING)
+    {
+       bitSet(irData, irDataIdx);
+    }
+    else if(dur >= IR_REMOTE_ZERO_TIMING)
+    {
+      bitClear(irData, irDataIdx);
+    }
+  }
+  /* check duration if it is a new start frame */
+  else if (dur >= IR_REMOTE_START_TIMING)
+  {
+      isDataValid = true;
+      irDataIdx = 0;
+      irData = 0;
+  }
+
+  Serial.println(dur, OCT);
+
 }
 
 
