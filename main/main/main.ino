@@ -532,28 +532,28 @@ void onAnimateRGB(void)
 
 /* a start high pulse in micro-seconds indicates start transferring a set of bits */
 #define IR_REMOTE_START_TIMING_MIN    3800
-#define IR_REMOTE_START_TIMING_MAX    4500
+#define IR_REMOTE_START_TIMING_MAX    4700
 
 /* a 'one' timing means to set a bit to 1, indicated by 1200micro-seconds high pulse */
 #define IR_REMOTE_ONE_TIMING_MIN      900
 #define IR_REMOTE_ONE_TIMING_MAX      1800
 
 /* a 'zero' timing means to set a bit to 0, indicated by 600micro-seconds high pulse */
-#define IR_REMOTE_ZERO_TIMING_MIN     200
+#define IR_REMOTE_ZERO_TIMING_MIN     300
 #define IR_REMOTE_ZERO_TIMING_MAX     700
 
-/* to allow sending or receiving measure difference */
-#define IR_REMOTE_DIFF            400
-
 /* measurement time out, in case timeout, reset all status */
-#define IR_REMOTE_TIMEOUT         120000
+#define IR_REMOTE_TIMEOUT         150000
+
+/* bitwise of receiving data */
+#define IR_REMOTE_DATA_WIDTH       32
 
 unsigned long pulseStartTiming; /* start timing of measuring a pulse */
 unsigned long dataStartTiming; /* start timing of measuring a data */
 bool isDataValid; /* detected a start flag referring @IR_REMOTE_START_TIMING */
-int irData; /* received data from IR */
+unsigned long irData; /* received data from IR */
 byte irDataIdx; /* current receiving idex of data */
-const int pinIRRemote = 11; /* hardware IR pin foot */
+const int pinIRRemote = 2; /* hardware IR pin foot */
 
 void IRRemoteSetup()
 {
@@ -578,8 +578,6 @@ void IRreset(void)
 
 bool IRIsPulseValid(unsigned int dur)
 {
-  String str = "unknow:";
-
    /* if duration is start flag*/
   if ((dur < (IR_REMOTE_START_TIMING_MIN))
   && (dur > ((IR_REMOTE_START_TIMING_MAX))))
@@ -601,46 +599,7 @@ bool IRIsPulseValid(unsigned int dur)
     return true;
   }
 
-  str += dur;
-  Serial.println(str);
   return false;
-}
-
-/* process one pulse */
-void IRRemoteOnPulse(unsigned long dur, unsigned long pulseStartTiming)
-{
-  /* check duration if it is a new start frame */
-  if ((dur >= (IR_REMOTE_START_TIMING_MIN))
-    && (dur <= (IR_REMOTE_START_TIMING_MAX))
-   )
-  {
-      Serial.println("start");
-      isDataValid = true;
-      irDataIdx = 0;
-      irData = 0;
-      dataStartTiming = pulseStartTiming;
-      return;
-  }
-  else if (isDataValid == true) {
-    /* read data if is a valid data frame */
-    /* convert data according with timing */
-    if (dur >= (IR_REMOTE_ONE_TIMING_MIN))
-    {
-       bitSet(irData, irDataIdx);
-    }
-    else if(dur <= (IR_REMOTE_ZERO_TIMING_MAX))
-    {
-      bitClear(irData, irDataIdx);
-    }
-    irDataIdx++;
-  }
-
-  if (irDataIdx >= 31)
-  {
-    Serial.print(irDataIdx);
-    Serial.print("data:");
-    Serial.println(irData, HEX);
-  }
 }
 
 /*
@@ -652,7 +611,8 @@ void IRRemoteMeasure()
   unsigned long dur, totalDur, filterDur, usCurrentTime;
 
   usCurrentTime = micros();
-  /* If a new data receiving procedure is started
+
+  /* If is receiving
   * Detect timeout and reset status
   */
   if (dataStartTiming != 0)
@@ -677,6 +637,9 @@ void IRRemoteMeasure()
     pulseStartTiming = usCurrentTime;
     return;
   }
+
+  /* next condition, pulse has not been started,
+   * or pin is HIGH after pulse measure started*/
   if ((pulseStartTiming == 0) || (HIGH == pinVal))
   {
     /*  return if a data measurement has not been started
@@ -690,9 +653,19 @@ void IRRemoteMeasure()
   /* calculate the high pulse duration */
   dur = usCurrentTime - pulseStartTiming;
 
+  /* filter out invalid pulses */
+//  if (IRIsPulseValid(dur) == false)
+  {
+      /* must reset to receive next pulse */
+//      pulseStartTiming = 0;
+//    return;
+  }
+
+//  Serial.print(pinVal);
+//  Serial.print("@");
 //  Serial.println(dur);
 
-  /* check duration if it is a new start frame */
+ /* check duration if it is a new start frame */
   if ((dur >= IR_REMOTE_START_TIMING_MIN)
     && (dur <= IR_REMOTE_START_TIMING_MAX)
    )
@@ -710,32 +683,36 @@ void IRRemoteMeasure()
 
     /* read data if is a valid data frame */
     /* convert data according with timing */
-    if (dur >= (IR_REMOTE_ONE_TIMING_MIN))
+    if ((dur >= (IR_REMOTE_ONE_TIMING_MIN)) &&
+    (dur <= (IR_REMOTE_ONE_TIMING_MAX)))
     {
-//    Serial.print("+");
+//       Serial.println(" +");
        bitSet(irData, irDataIdx);
     }
-    else if(dur <= (IR_REMOTE_ZERO_TIMING_MAX))
+    else if((dur <= (IR_REMOTE_ZERO_TIMING_MAX)) &&
+    (dur >= (IR_REMOTE_ZERO_TIMING_MIN)) )
     {
-//     Serial.print("-");
+//      Serial.println(" -");
       bitClear(irData, irDataIdx);
     }
     else{
-      Serial.print("unknown -");
+      Serial.print("unkn!");
       Serial.println(dur);
+      /* must reset to receive next pulse */
+      pulseStartTiming = 0;
       return;
     }
     irDataIdx++;
 
   }
 
-  if (irDataIdx >= 31)
+  /* if receive completed */
+  if (irDataIdx >= IR_REMOTE_DATA_WIDTH)
   {
     Serial.print(irDataIdx);
     Serial.print("data:");
     Serial.println(irData, HEX);
   }
-  
   /* must reset to receive next pulse */
   pulseStartTiming = 0;
 }
