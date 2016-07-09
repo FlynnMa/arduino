@@ -528,18 +528,29 @@ void onAnimateRGB(void)
  * https://github.com/marduino/arduino/wiki
  * 
  * https://github.com/arduino/ArduinoCore-samd/blob/master/cores/arduino/main.cpp
+ * 
+ * Be aware that, in Uno and other ATMega based boards, long or unsigned long is 32bits
  */
+
+/* define to enable reverted receive, the first bit start from highest,
+ * or else, start from bit0 until the highest bit
+ */
+//#define __IRREMOTE_RECEIVE_REVERT__
 
 /* a start high pulse in micro-seconds indicates start transferring a set of bits */
 #define IR_REMOTE_START_TIMING_MIN    3800
-#define IR_REMOTE_START_TIMING_MAX    4700
+#define IR_REMOTE_START_TIMING_MAX    4800
+
+/* continue pulse flag in micro-seconds */
+#define IR_REMOTE_CONTINUE_TIMING_MIN  18000
+#define IR_REMOTE_CONTINUE_TIMING_MAX  22000
 
 /* a 'one' timing means to set a bit to 1, indicated by 1200micro-seconds high pulse */
 #define IR_REMOTE_ONE_TIMING_MIN      900
 #define IR_REMOTE_ONE_TIMING_MAX      1800
 
 /* a 'zero' timing means to set a bit to 0, indicated by 600micro-seconds high pulse */
-#define IR_REMOTE_ZERO_TIMING_MIN     300
+#define IR_REMOTE_ZERO_TIMING_MIN     250
 #define IR_REMOTE_ZERO_TIMING_MAX     700
 
 /* measurement time out, in case timeout, reset all status */
@@ -553,7 +564,9 @@ unsigned long dataStartTiming; /* start timing of measuring a data */
 bool isDataValid; /* detected a start flag referring @IR_REMOTE_START_TIMING */
 unsigned long irData; /* received data from IR */
 byte irDataIdx; /* current receiving idex of data */
-const int pinIRRemote = 2; /* hardware IR pin foot */
+const int pinIRRemote = 11; /* hardware IR pin foot */
+unsigned long irDataLongCode; /* first data received while continue pulse flag received,
+                                  and the next 32bits data will be stored in irData*/
 
 void IRRemoteSetup()
 {
@@ -573,7 +586,8 @@ void IRreset(void)
   dataStartTiming = 0;
   isDataValid = 0;
   irData = 0;
-  irDataIdx = 0; 
+  irDataIdx = 0;
+  irDataLongCode = 0; 
 }
 
 bool IRIsPulseValid(unsigned int dur)
@@ -663,7 +677,7 @@ void IRRemoteMeasure()
 
 //  Serial.print(pinVal);
 //  Serial.print("@");
-//  Serial.println(dur);
+//    Serial.println(dur);
 
  /* check duration if it is a new start frame */
   if ((dur >= IR_REMOTE_START_TIMING_MIN)
@@ -686,14 +700,28 @@ void IRRemoteMeasure()
     if ((dur >= (IR_REMOTE_ONE_TIMING_MIN)) &&
     (dur <= (IR_REMOTE_ONE_TIMING_MAX)))
     {
-//       Serial.println(" +");
+#ifdef __IRREMOTE_RECEIVE_REVERT__
+       bitSet(irData, (IR_REMOTE_DATA_WIDTH -1 - irDataIdx));
+#else
        bitSet(irData, irDataIdx);
+#endif
     }
     else if((dur <= (IR_REMOTE_ZERO_TIMING_MAX)) &&
     (dur >= (IR_REMOTE_ZERO_TIMING_MIN)) )
     {
-//      Serial.println(" -");
+#ifdef __IRREMOTE_RECEIVE_REVERT__
+      bitClear(irData, (IR_REMOTE_DATA_WIDTH - 1 - irDataIdx));
+#else
       bitClear(irData, irDataIdx);
+#endif
+    }
+    else if ((dur <= (IR_REMOTE_CONTINUE_TIMING_MAX)) &&
+    (dur >= (IR_REMOTE_CONTINUE_TIMING_MIN)))
+    {
+      irDataLongCode = irData;
+      Serial.print("continues@");
+      Serial.println(irData, HEX);
+      irDataIdx = 0; /* reset index to continue receive next data */
     }
     else{
       Serial.print("unkn!");
@@ -710,9 +738,10 @@ void IRRemoteMeasure()
   if (irDataIdx >= IR_REMOTE_DATA_WIDTH)
   {
     Serial.print(irDataIdx);
-    Serial.print("data:");
+    Serial.print("@data:");
     Serial.println(irData, HEX);
   }
+
   /* must reset to receive next pulse */
   pulseStartTiming = 0;
 }
