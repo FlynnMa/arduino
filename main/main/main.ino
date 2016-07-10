@@ -529,6 +529,7 @@ void onAnimateRGB(void)
  * 
  * https://github.com/arduino/ArduinoCore-samd/blob/master/cores/arduino/main.cpp
  * 
+ * GREE air conditioner ir-remote spec(Chinese) -- http://wenku.baidu.com/view/2197b3400b4e767f5bcfce34.html
  * Be aware that, in Uno and other ATMega based boards, long or unsigned long is 32bits
  */
 
