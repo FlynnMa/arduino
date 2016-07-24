@@ -29,6 +29,9 @@ void playMelody(String param);
 void cmdRGB(String rgbValueStr);
 void cmdPlayRGB(String aniDuration);
 void onAnimateRGB(void);
+
+void IRRemoteSendGreePowerOn(String param);
+
 /*
  * Defintions
 */
@@ -80,6 +83,7 @@ const CmdType custCommands[] = {
   {"rgb", "rgb rrr,ggg,bbb to set a rgb LED color", cmdRGB},
   {"playrgb", "playrgb milli-seconds, rgb as animation", cmdPlayRGB},
 #endif //#ifdef __SUPPORT_RGBLED__
+  {"greeOn", "power on gree air conditioner via ir remote", IRRemoteSendGreePowerOn},
   {"endOfCmd", "end of commands", emptyFunc},
 };
 
@@ -530,7 +534,7 @@ void onAnimateRGB(void)
  * https://github.com/arduino/ArduinoCore-samd/blob/master/cores/arduino/main.cpp
  * 
  * GREE air conditioner ir-remote spec(Chinese) -- http://wenku.baidu.com/view/2197b3400b4e767f5bcfce34.html
- * Be aware that, in Uno and other ATMega based boards, long or unsigned long is 32bits
+ * !Be aware that, in Uno and other ATMega based boards, long or unsigned long is 32bits
  */
 
 /* define to enable reverted receive, the first bit start from highest,
@@ -542,20 +546,52 @@ void onAnimateRGB(void)
 #define IR_REMOTE_START_TIMING_MIN    3800
 #define IR_REMOTE_START_TIMING_MAX    4800
 
+/*standard definition of start signal,
+ * refer to 
+ * http://wenku.baidu.com/view/2197b3400b4e767f5bcfce34.html
+*/
+#define IR_REMOTE_STANDARD_START_TIMING_HIGH  4500
+#define IR_REMOTE_STANDARD_START_TIMING_LOW   9000
+
 /* continue pulse flag in micro-seconds */
 #define IR_REMOTE_CONTINUE_TIMING_MIN  18000
 #define IR_REMOTE_CONTINUE_TIMING_MAX  22000
+
+/* standard definition of continue signal in micro-seconds
+ *  refer to
+ *  http://wenku.baidu.com/view/2197b3400b4e767f5bcfce34.html
+ */
+#define IR_REMOTE_STANDARD_CONTINUE_TIMING_HIGH   20000
+#define IR_REMOTE_STANDARD_CONTINUE_TIMING_LOW    600
 
 /* a 'one' timing means to set a bit to 1, indicated by 1200micro-seconds high pulse */
 #define IR_REMOTE_ONE_TIMING_MIN      900
 #define IR_REMOTE_ONE_TIMING_MAX      1800
 
+/* standard definition of 'one' signal in micro-seconds
+ *  refer to
+ *  http://wenku.baidu.com/view/2197b3400b4e767f5bcfce34.html
+ */
+#define IR_REMOTE_STANDARD_ONE_TIMING_HIGH   1600
+#define IR_REMOTE_STANDARD_ONE_TIMING_LOW    600
+
 /* a 'zero' timing means to set a bit to 0, indicated by 600micro-seconds high pulse */
-#define IR_REMOTE_ZERO_TIMING_MIN     250
+#define IR_REMOTE_ZERO_TIMING_MIN     50
 #define IR_REMOTE_ZERO_TIMING_MAX     700
+
+/* standard definition of 'zero' signal in micro-seconds
+ *  refer to
+ *  http://wenku.baidu.com/view/2197b3400b4e767f5bcfce34.html
+ */
+#define IR_REMOTE_STANDARD_ZERO_TIMING_HIGH   600
+#define IR_REMOTE_STANDARD_ZERO_TIMING_LOW    600
 
 /* measurement time out, in case timeout, reset all status */
 #define IR_REMOTE_TIMEOUT         150000
+
+#define GREE_DATA0_BITS    28
+#define GREE_DATA0_FIXED_BITS_TYPE0   0x25
+#define GREE_DATA0_FIXED_BITS_TYPE1   0x27
 
 /* bitwise of receiving data */
 #define IR_REMOTE_DATA_WIDTH       32
@@ -564,10 +600,19 @@ unsigned long pulseStartTiming; /* start timing of measuring a pulse */
 unsigned long dataStartTiming; /* start timing of measuring a data */
 bool isDataValid; /* detected a start flag referring @IR_REMOTE_START_TIMING */
 unsigned long irData; /* received data from IR */
+unsigned long irDataExtra; /* received extra data from IR */
 byte irDataIdx; /* current receiving idex of data */
 const int pinIRRemote = 11; /* hardware IR pin foot */
 unsigned long irDataLongCode; /* first data received while continue pulse flag received,
                                   and the next 32bits data will be stored in irData*/
+
+const int pinIRSendRemote = 3; /* pin for connecting IR sending remote */
+const long greeIRCodeSwitchOnD0 = 0x0200a29;
+const long greeIRCodeSweithOffD0 = 0x0200a21;
+const long greeIRCodeOffD1Type0 = 0x7002300;
+const long greeIRCodeOffD1Type1 = 0x70200000;
+const long greeIRCodeOnD1Type0 = 0xf0002300;
+const long greeIRCodeOnD1Type1 = 0xf0200000;
 
 void IRRemoteSetup()
 {
@@ -691,6 +736,7 @@ void IRRemoteMeasure()
       irData = 0;
       dataStartTiming = pulseStartTiming;
       pulseStartTiming = 0;
+      irDataExtra = 0;
       return;
   }
   else if (isDataValid == true) {
@@ -704,7 +750,11 @@ void IRRemoteMeasure()
 #ifdef __IRREMOTE_RECEIVE_REVERT__
        bitSet(irData, (IR_REMOTE_DATA_WIDTH -1 - irDataIdx));
 #else
-       bitSet(irData, irDataIdx);
+       if (irDataIdx >= 32){
+           bitSet(irDataExtra, irDataIdx - 32);
+        } else {
+           bitSet(irData, irDataIdx);
+        }
 #endif
     }
     else if((dur <= (IR_REMOTE_ZERO_TIMING_MAX)) &&
@@ -713,16 +763,25 @@ void IRRemoteMeasure()
 #ifdef __IRREMOTE_RECEIVE_REVERT__
       bitClear(irData, (IR_REMOTE_DATA_WIDTH - 1 - irDataIdx));
 #else
-      bitClear(irData, irDataIdx);
+     if (irDataIdx >= 32){
+        bitClear(irDataExtra, irDataIdx - 32);
+      } else {
+        bitClear(irData, irDataIdx);
+      }
 #endif
     }
     else if ((dur <= (IR_REMOTE_CONTINUE_TIMING_MAX)) &&
     (dur >= (IR_REMOTE_CONTINUE_TIMING_MIN)))
     {
       irDataLongCode = irData;
+      Serial.print(irData, HEX);
       Serial.print("continues@");
-      Serial.println(irData, HEX);
+      Serial.println(irDataExtra, HEX);
       irDataIdx = 0; /* reset index to continue receive next data */
+      irDataExtra = 0;
+        /* must reset to receive next pulse */
+       pulseStartTiming = 0;
+       return;
     }
     else{
       Serial.print("unkn!");
@@ -736,15 +795,127 @@ void IRRemoteMeasure()
   }
 
   /* if receive completed */
-  if (irDataIdx >= IR_REMOTE_DATA_WIDTH)
+  if (irDataIdx == IR_REMOTE_DATA_WIDTH)
   {
     Serial.print(irDataIdx);
     Serial.print("@data:");
-    Serial.println(irData, HEX);
+    Serial.print(irData, HEX);
+    Serial.print("@dataExtra:");
+    Serial.println(irDataExtra, HEX);
   }
 
   /* must reset to receive next pulse */
   pulseStartTiming = 0;
 }
 
+/* IRRemote controller to set a start signal according with definition
+ *  
+ *  currently this implementation is based on the remote controller of GREE air conditioner
+ */
+void IRremoteSendStartSignal(void)
+{
+  /* set low signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, LOW);
+  delayMicroseconds(IR_REMOTE_STANDARD_START_TIMING_LOW);
 
+  /* set high signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, HIGH);
+  delayMicroseconds(IR_REMOTE_STANDARD_START_TIMING_HIGH);
+}
+
+/* IRRemote controller to set a continue signal according with definition
+ *  
+ *  currently this implementation is based on the remote controller of GREE air conditioner
+ */
+void IRremoteSendContinueSignal(void)
+{
+  /* set low signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, LOW);
+  delayMicroseconds(IR_REMOTE_STANDARD_CONTINUE_TIMING_LOW);
+
+  /* set high signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, HIGH);
+  delayMicroseconds(IR_REMOTE_STANDARD_CONTINUE_TIMING_HIGH);
+
+}
+
+/* IRRemote controller to set a zero  signal according with definition
+ *  
+ *  currently this implementation is based on the remote controller of GREE air conditioner
+ */
+void IRremoteSendZeroSignal(void)
+{
+  /* set low signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, LOW);
+  delayMicroseconds(IR_REMOTE_STANDARD_ZERO_TIMING_LOW);
+
+  /* set high signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, HIGH);
+  delayMicroseconds(IR_REMOTE_STANDARD_ZERO_TIMING_HIGH);
+
+}
+
+/* IRRemote controller to set an 'one' signal according with definition
+ *  
+ *  currently this implementation is based on the remote controller of GREE air conditioner
+ */
+void IRremoteSendOneSignal(void)
+{
+  /* set low signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, LOW);
+  delayMicroseconds(IR_REMOTE_STANDARD_ONE_TIMING_LOW);
+
+  /* set high signal according with GREE definiion */
+  digitalWrite(pinIRSendRemote, HIGH);
+  delayMicroseconds(IR_REMOTE_STANDARD_ONE_TIMING_HIGH);
+
+}
+
+/*
+ * Send a data, maximum 32bits
+ * note:
+ * Send a start signal by 'IRremoteSendStartSignal' before invoking this function
+ */
+void IRRemoteSendData(unsigned long data, int num)
+{
+  int i, value;
+  
+  for (i = 0; i < num; i++)
+  {
+    value = bitRead(data, i);
+    if (value == 0){
+      IRremoteSendZeroSignal();
+    } else
+    {
+      IRremoteSendOneSignal();
+    }
+  }
+}
+
+/* To switch GREE air conditioner on
+ * */
+void IRRemoteSendGreePowerOn(String param)
+{
+  /* send start signal */
+  IRremoteSendStartSignal();
+
+  IRRemoteSendData(greeIRCodeSwitchOnD0, GREE_DATA0_BITS);
+  IRRemoteSendData(GREE_DATA0_FIXED_BITS_TYPE0, 35 - GREE_DATA0_BITS);
+
+  IRremoteSendContinueSignal();
+  IRRemoteSendData(greeIRCodeOnD1Type0, 32);
+
+  /* send start signal */
+  IRremoteSendStartSignal();
+  /* send start signal */
+  IRremoteSendStartSignal();
+  
+
+  IRRemoteSendData(greeIRCodeSwitchOnD0, GREE_DATA0_BITS);
+  IRRemoteSendData(GREE_DATA0_FIXED_BITS_TYPE1, 35 - GREE_DATA0_BITS);
+
+  IRremoteSendContinueSignal();
+  IRRemoteSendData(greeIRCodeOnD1Type1, 32);
+
+  
+}
